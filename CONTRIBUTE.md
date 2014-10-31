@@ -28,7 +28,7 @@ There are two set of tests resulting from the BDD approach we've been applying t
 
 Run the specs:
 
-    $ node_modules/.bin/jasmine-node spec
+    $ npm i && npm test
 
 ### Features & documentation
 
@@ -101,12 +101,11 @@ addStyleToText(/* ... */) // you can fairly guess this function
 
 This a reminder of the steps maintainers have to follow to release a new version of Cucumber.js.
 
-* Update development status in `README.md`, if relevant
-* Update `History.md`
+* Update `History.md`. `git log --format=format:"* %s (%an)" --reverse <last-version-tag>..HEAD` might be handy.
 * Bump version in `lib/cucumber.js`
 * Bump version in `package.json`
 * Bump version in `bower.json`
-* Compile the bundle with `node scripts/compile-release.js`
+* Compile the bundle with `node scripts/release.js`
 * Add new contributors to `package.json`, if any
 * Commit those changes as "*Release 0.1.2*" (where *0.1.2* is the actual version, of course)
 * Tag commit as "v0.1.2" with short description of main changes

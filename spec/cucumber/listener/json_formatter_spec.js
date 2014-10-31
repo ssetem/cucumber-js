@@ -14,6 +14,7 @@ describe("Cucumber.Listener.JsonFormatterWrapper", function () {
     spyOn(formatter, 'background');
     spyOn(formatter, 'scenario');
     spyOn(formatter, 'result');
+    spyOn(formatter, 'embedding');
     spyOn(formatter, 'match');
     spyOn(formatter, 'eof');
     spyOn(formatter, 'done');
@@ -68,6 +69,7 @@ describe("Cucumber.Listener.JsonFormatterWrapper", function () {
         getName: 'Step',
         getLine: 3,
         getKeyword: 'Step',
+        isHidden: false,
         hasDocString: false,
         hasDataTable: false
       });
@@ -140,13 +142,32 @@ describe("Cucumber.Listener.JsonFormatterWrapper", function () {
         getName: 'Step',
         getLine: 3,
         getKeyword: 'Step',
+        isHidden: false,
         hasDocString: false,
         hasDataTable: false
       });
 
       listener.formatStep(step);
       expect(formatter.step).toHaveBeenCalledWith({ name : 'Step', line : 3, keyword : 'Step'});
+    });
 
+    it("if the step is hidden, adds a hidden attribute to the step properties", function (){
+      var step = createSpyWithStubs("step", {
+        getName: 'Step',
+        getLine: 3,
+        getKeyword: 'Step',
+        isHidden: true,
+        hasDocString: false,
+        hasDataTable: false
+      });
+
+      listener.formatStep(step);
+      expect(formatter.step).toHaveBeenCalledWith({
+        name: 'Step',
+        line: 3,
+        keyword: 'Step',
+        hidden: true
+      });
     });
 
     it("if the step has one, adds a DocString to the step properties", function (){
@@ -160,6 +181,7 @@ describe("Cucumber.Listener.JsonFormatterWrapper", function () {
         getName: 'Step',
         getLine: 3,
         getKeyword: 'Step',
+        isHidden: false,
         hasDocString: true,
         hasDataTable: false,
         getDocString: fakeDocString
@@ -191,6 +213,7 @@ describe("Cucumber.Listener.JsonFormatterWrapper", function () {
         getName: 'Step',
         getLine: 3,
         getKeyword: 'Step',
+        isHidden: false,
         hasDocString: false,
         hasDataTable: true,
         getDataTable: fakeDataTable
@@ -243,193 +266,291 @@ describe("Cucumber.Listener.JsonFormatterWrapper", function () {
   });
 
   describe("handleStepResultEvent()", function () {
-    var parentFeatureEvent, feature, parent_scenario_event, scenario, event, callback, stepResult;
+    var event, callback, step, stepResult;
 
     beforeEach(function () {
       callback = createSpy("Callback");
     });
 
-    it("outputs a step with failed status where no result has been defined", function (){
-      step = createSpyWithStubs("step", {
-        getName: 'Step',
-        getLine: 3,
-        getKeyword: 'Step',
-        hasDocString: false,
-        hasDataTable: false
+    describe("when no result has been defined", function() {
+      beforeEach(function() {
+        step = createSpyWithStubs("step", {
+          getName:      'Step',
+          getLine:      3,
+          getKeyword:   'Step',
+          isHidden:     false,
+          hasDocString: false,
+          hasDataTable: false
+        });
+        stepResult = createSpyWithStubs("stepResult", {
+          isSuccessful:        undefined,
+          isPending:           undefined,
+          isFailed:            undefined,
+          isSkipped:           undefined,
+          isUndefined:         undefined,
+          getFailureException: false,
+          getDuration:         undefined,
+          getStep:             step,
+          hasAttachments:      false,
+          getAttachments:      undefined
+        });
+        fakeEvent = createSpyWithStubs("event", {getPayloadItem: stepResult});
       });
-      stepResult = createSpyWithStubs("stepResult", {
-        isSuccessful: undefined,
-        isPending:    undefined,
-        isFailed:     undefined,
-        isSkipped:    undefined,
-        isUndefined:  undefined,
-        getFailureException: false,
-        getDuration:  undefined,
-        getStep:      step
+
+      it("outputs a step with failed status", function () {
+        listener.handleStepResultEvent(fakeEvent, callback);
+
+        expect(formatter.step).toHaveBeenCalledWith({name: 'Step', line: 3, keyword: 'Step'});
+        expect(formatter.result).toHaveBeenCalledWith({status: 'failed'});
+        expect(formatter.match).toHaveBeenCalledWith({location: undefined});
       });
-      fakeEvent = createSpyWithStubs("event", {getPayloadItem: stepResult});
 
-      listener.handleStepResultEvent(fakeEvent, callback);
+      describe("when step result has attachments", function() {
+        beforeEach(function() {
+          var attachment1 = createSpyWithStubs("first attachment", {getMimeType: "first mime type", getData: "first data"});
+          var attachment2 = createSpyWithStubs("second attachment", {getMimeType: "second mime type", getData: "second data"});
+          var attachments = Cucumber.Type.Collection();
+          attachments.add(attachment1);
+          attachments.add(attachment2);
+          stepResult.hasAttachments.andReturn(true);
+          stepResult.getAttachments.andReturn(attachments);
+        });
 
-      expect(formatter.step).toHaveBeenCalledWith({name: 'Step', line: 3, keyword: 'Step'});
-      expect(formatter.result).toHaveBeenCalledWith({status: 'failed'});
-      expect(formatter.match).toHaveBeenCalledWith({location: undefined});
+        it("outputs a step with failed status", function () {
+          listener.handleStepResultEvent(fakeEvent, callback);
 
+          expect(formatter.result).toHaveBeenCalledWith({status: 'failed'});
+          expect(formatter.embedding.callCount).toEqual(2);
+          expect(formatter.embedding.argsForCall[0]).toEqual(['first mime type', 'first data']);
+          expect(formatter.embedding.argsForCall[1]).toEqual(['second mime type', 'second data']);
+        });
+      });
     });
 
-    it("outputs a step with passed status for a successful step", function (){
-      step = createSpyWithStubs("step", {
-        getName: 'Step',
-        getLine: 3,
-        getKeyword: 'Step',
-        hasDocString: false,
-        hasDataTable: false
+    describe("when step has succeeded", function() {
+      beforeEach(function() {
+        step = createSpyWithStubs("step", {
+          getName:      'Step',
+          getLine:      3,
+          getKeyword:   'Step',
+          isHidden:     false,
+          hasDocString: false,
+          hasDataTable: false
+        });
+        stepResult = createSpyWithStubs("stepResult", {
+          isSuccessful:        undefined,
+          isPending:           undefined,
+          isFailed:            undefined,
+          isSkipped:           undefined,
+          isUndefined:         undefined,
+          getFailureException: false,
+          getDuration:         undefined,
+          getStep:             step,
+          hasAttachments:      false,
+          getAttachments:      undefined
+        });
+        stepResult.isSuccessful.andReturn(true);
+        stepResult.getDuration.andReturn(1);
+        fakeEvent = createSpyWithStubs("event", {getPayloadItem: stepResult});
       });
-      stepResult = createSpyWithStubs("stepResult", {
-        isSuccessful: undefined,
-        isPending:    undefined,
-        isFailed:     undefined,
-        isSkipped:    undefined,
-        isUndefined:  undefined,
-        getFailureException: false,
-        getDuration:  undefined,
-        getStep:      step
+
+      it("outputs a step with passed status", function (){
+        listener.handleStepResultEvent(fakeEvent, callback);
+
+        expect(formatter.step).toHaveBeenCalledWith({name: 'Step', line: 3, keyword: 'Step'});
+        expect(formatter.result).toHaveBeenCalledWith({status: 'passed', duration: 1});
+        expect(formatter.match).toHaveBeenCalledWith({location: undefined});
       });
-      stepResult.isSuccessful.andReturn(true);
-      stepResult.getDuration.andReturn(1);
-      fakeEvent = createSpyWithStubs("event", {getPayloadItem: stepResult});
 
-      listener.handleStepResultEvent(fakeEvent, callback);
+      describe("when step result has attachments", function() {
+        beforeEach(function() {
+          var attachment1 = createSpyWithStubs("first attachment", {getMimeType: "first mime type", getData: "first data"});
+          var attachment2 = createSpyWithStubs("second attachment", {getMimeType: "second mime type", getData: "second data"});
+          var attachments = Cucumber.Type.Collection();
+          attachments.add(attachment1);
+          attachments.add(attachment2);
+          stepResult.hasAttachments.andReturn(true);
+          stepResult.getAttachments.andReturn(attachments);
+        });
 
-      expect(formatter.step).toHaveBeenCalledWith({name: 'Step', line: 3, keyword: 'Step'});
-      expect(formatter.result).toHaveBeenCalledWith({status: 'passed', duration: 1});
-      expect(formatter.match).toHaveBeenCalledWith({location: undefined});
+        it("outputs a step with passed status", function () {
+          listener.handleStepResultEvent(fakeEvent, callback);
+
+          expect(formatter.result).toHaveBeenCalledWith({status: 'passed', duration: 1});
+          expect(formatter.embedding.callCount).toEqual(2);
+          expect(formatter.embedding.argsForCall[0]).toEqual(['first mime type', 'first data']);
+          expect(formatter.embedding.argsForCall[1]).toEqual(['second mime type', 'second data']);
+        });
+      });
     });
 
-    it("outputs a step with pending status where step is pending", function (){
-      step = createSpyWithStubs("step", {
-        getName: 'Step',
-        getLine: 3,
-        getKeyword: 'Step',
-        hasDocString: false,
-        hasDataTable: false
+    describe("when step is pending", function() {
+      beforeEach(function() {
+        step = createSpyWithStubs("step", {
+          getName: 'Step',
+          getLine: 3,
+          getKeyword: 'Step',
+          isHidden: false,
+          hasDocString: false,
+          hasDataTable: false
+        });
+
+        stepResult = createSpyWithStubs("stepResult", {
+          isSuccessful:        undefined,
+          isPending:           undefined,
+          isFailed:            undefined,
+          isSkipped:           undefined,
+          isUndefined:         undefined,
+          getFailureException: false,
+          getDuration:         undefined,
+          getStep:             step
+        });
+
+        stepResult.isPending.andReturn(true);
+        fakeEvent = createSpyWithStubs("event", {getPayloadItem: stepResult});
       });
 
-      stepResult = createSpyWithStubs("stepResult", {
-        isSuccessful: undefined,
-        isPending:    undefined,
-        isFailed:     undefined,
-        isSkipped:    undefined,
-        isUndefined:  undefined,
-        getFailureException: false,
-        getDuration:  undefined,
-        getStep:      step
+      it("outputs a step with pending status where step is pending", function (){
+        listener.handleStepResultEvent(fakeEvent, callback);
+
+        expect(formatter.step).toHaveBeenCalledWith({name: 'Step', line: 3, keyword: 'Step'});
+        expect(formatter.result).toHaveBeenCalledWith({status: 'pending', error_message: undefined});
+        expect(formatter.match).toHaveBeenCalledWith({location: undefined});
       });
-
-      stepResult.isPending.andReturn(true);
-      fakeEvent = createSpyWithStubs("event", {getPayloadItem: stepResult});
-
-      listener.handleStepResultEvent(fakeEvent, callback);
-
-      expect(formatter.step).toHaveBeenCalledWith({name: 'Step', line: 3, keyword: 'Step'});
-      expect(formatter.result).toHaveBeenCalledWith({status: 'pending', error_message: undefined});
-      expect(formatter.match).toHaveBeenCalledWith({location: undefined});
     });
 
-    it("outputs a step with failed status where step fails", function (){
-      step = createSpyWithStubs("step", {
-        getName: 'Step',
-        getLine: 3,
-        getKeyword: 'Step',
-        hasDocString: false,
-        hasDataTable: false
+    describe("when step has failed", function() {
+      beforeEach(function() {
+        step = createSpyWithStubs("step", {
+          getName:      'Step',
+          getLine:      3,
+          getKeyword:   'Step',
+          isHidden:     false,
+          hasDocString: false,
+          hasDataTable: false
+        });
+
+        stepResult = createSpyWithStubs("stepResult", {
+          isSuccessful:        undefined,
+          isPending:           undefined,
+          isFailed:            undefined,
+          isSkipped:           undefined,
+          isUndefined:         undefined,
+          getFailureException: false,
+          getDuration:         undefined,
+          getStep:             step,
+          hasAttachments:      false,
+          getAttachments:      undefined
+        });
+
+        stepResult.isFailed.andReturn(true);
+        stepResult.getDuration.andReturn(1);
+        fakeEvent = createSpyWithStubs("event", {getPayloadItem: stepResult});
       });
 
-      stepResult = createSpyWithStubs("stepResult", {
-        isSuccessful: undefined,
-        isPending:    undefined,
-        isFailed:     undefined,
-        isSkipped:    undefined,
-        isUndefined:  undefined,
-        getFailureException: false,
-        getDuration:  undefined,
-        getStep:      step
+      it("outputs a step with failed status", function (){
+        listener.handleStepResultEvent(fakeEvent, callback);
+
+        expect(formatter.step).toHaveBeenCalledWith({name: 'Step', line: 3, keyword: 'Step'});
+        expect(formatter.result).toHaveBeenCalledWith({status: 'failed', duration: 1});
+        expect(formatter.match).toHaveBeenCalledWith({location: undefined});
       });
 
-      stepResult.isFailed.andReturn(true);
-      stepResult.getDuration.andReturn(1);
-      fakeEvent = createSpyWithStubs("event", {getPayloadItem: stepResult});
+      describe("when step result has attachments", function() {
+        beforeEach(function() {
+          var attachment1 = createSpyWithStubs("first attachment", {getMimeType: "first mime type", getData: "first data"});
+          var attachment2 = createSpyWithStubs("second attachment", {getMimeType: "second mime type", getData: "second data"});
+          var attachments = Cucumber.Type.Collection();
+          attachments.add(attachment1);
+          attachments.add(attachment2);
+          stepResult.hasAttachments.andReturn(true);
+          stepResult.getAttachments.andReturn(attachments);
+        });
 
-      listener.handleStepResultEvent(fakeEvent, callback);
+        it("outputs a step with failed status", function () {
+          listener.handleStepResultEvent(fakeEvent, callback);
 
-      expect(formatter.step).toHaveBeenCalledWith({name: 'Step', line: 3, keyword: 'Step'});
-      expect(formatter.result).toHaveBeenCalledWith({status: 'failed', duration: 1});
-      expect(formatter.match).toHaveBeenCalledWith({location: undefined});
+          expect(formatter.result).toHaveBeenCalledWith({status: 'failed', duration: 1});
+          expect(formatter.embedding.callCount).toEqual(2);
+          expect(formatter.embedding.argsForCall[0]).toEqual(['first mime type', 'first data']);
+          expect(formatter.embedding.argsForCall[1]).toEqual(['second mime type', 'second data']);
+        });
+      });
     });
 
-    it("outputs a step with skipped status where step should be skipped", function (){
-      step = createSpyWithStubs("step", {
-        getName: 'Step',
-        getLine: 3,
-        getKeyword: 'Step',
-        hasDocString: false,
-        hasDataTable: false
+    describe("when step is skipped", function() {
+      beforeEach(function() {
+        step = createSpyWithStubs("step", {
+          getName: 'Step',
+          getLine: 3,
+          getKeyword: 'Step',
+          isHidden: false,
+          hasDocString: false,
+          hasDataTable: false
+        });
+
+        stepResult = createSpyWithStubs("stepResult", {
+          isSuccessful: undefined,
+          isPending:    undefined,
+          isFailed:     undefined,
+          isSkipped:    undefined,
+          isUndefined:  undefined,
+          getFailureException: false,
+          getDuration:  undefined,
+          getStep:      step
+        });
+
+        stepResult.isSkipped.andReturn(true);
+        fakeEvent      = createSpyWithStubs("event", {getPayloadItem: stepResult});
       });
 
-      stepResult = createSpyWithStubs("stepResult", {
-        isSuccessful: undefined,
-        isPending:    undefined,
-        isFailed:     undefined,
-        isSkipped:    undefined,
-        isUndefined:  undefined,
-        getFailureException: false,
-        getDuration:  undefined,
-        getStep:      step
+      it("outputs a step with skipped status where step should be skipped", function (){
+        listener.handleStepResultEvent(fakeEvent, callback);
+
+        expect(formatter.step).toHaveBeenCalledWith({name: 'Step', line: 3, keyword: 'Step'});
+        expect(formatter.result).toHaveBeenCalledWith({status: 'skipped'});
+        expect(formatter.match).toHaveBeenCalledWith({location: undefined});
       });
-
-      stepResult.isSkipped.andReturn(true);
-      fakeEvent      = createSpyWithStubs("event", {getPayloadItem: stepResult});
-
-      listener.handleStepResultEvent(fakeEvent, callback);
-
-      expect(formatter.step).toHaveBeenCalledWith({name: 'Step', line: 3, keyword: 'Step'});
-      expect(formatter.result).toHaveBeenCalledWith({status: 'skipped'});
-      expect(formatter.match).toHaveBeenCalledWith({location: undefined});
     });
 
-    it("outputs a step with undefined status where step is undefined", function (){
-      step = createSpyWithStubs("step", {
-        getName: 'Step',
-        getLine: 3,
-        getKeyword: 'Step',
-        hasDocString: false,
-        hasDataTable: false
+    describe("when step is undefined", function() {
+      beforeEach(function () {
+        step = createSpyWithStubs("step", {
+          getName: 'Step',
+          getLine: 3,
+          getKeyword: 'Step',
+          isHidden: false,
+          hasDocString: false,
+          hasDataTable: false
+        });
+
+        stepResult = createSpyWithStubs("stepResult", {
+          isSuccessful: undefined,
+          isPending: undefined,
+          isFailed: undefined,
+          isSkipped: undefined,
+          isUndefined: undefined,
+          getFailureException: false,
+          getDuration: undefined,
+          getStep: step
+        });
+
+        stepResult.isUndefined.andReturn(true);
+        fakeEvent = createSpyWithStubs("event", {getPayloadItem: stepResult});
       });
 
-      stepResult = createSpyWithStubs("stepResult", {
-        isSuccessful: undefined,
-        isPending:    undefined,
-        isFailed:     undefined,
-        isSkipped:    undefined,
-        isUndefined:  undefined,
-        getFailureException: false,
-        getDuration:  undefined,
-        getStep:      step
+      it("outputs a step with undefined status where step is undefined", function () {
+        listener.handleStepResultEvent(fakeEvent, callback);
+
+        expect(formatter.step).toHaveBeenCalledWith({name: 'Step', line: 3, keyword: 'Step'});
+        expect(formatter.result).toHaveBeenCalledWith({status: 'undefined'});
+        expect(formatter.match).toHaveBeenCalledWith({location: undefined});
       });
-
-      stepResult.isUndefined.andReturn(true);
-      fakeEvent      = createSpyWithStubs("event", {getPayloadItem: stepResult});
-
-      listener.handleStepResultEvent(fakeEvent, callback);
-
-      expect(formatter.step).toHaveBeenCalledWith({name: 'Step', line: 3, keyword: 'Step'});
-      expect(formatter.result).toHaveBeenCalledWith({status: 'undefined'});
-      expect(formatter.match).toHaveBeenCalledWith({location: undefined});
     });
   });
 
   describe("handleAfterFeaturesEvent()", function () {
-    var features, callback;
+    var event, callback;
 
     beforeEach(function () {
       event    = createSpy("Event");

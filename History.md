@@ -2,9 +2,73 @@
 
 ## [v0.4.x](https://github.com/cucumber/cucumber-js/compare/v0.4.0...master)
 
-### [master (unreleased)](https://github.com/cucumber/cucumber-js/compare/v0.4.0...master)
+### [master (unreleased)](https://github.com/cucumber/cucumber-js/compare/v0.4.4...master)
 
 **TBD**
+
+### [v0.4.4](https://github.com/cucumber/cucumber-js/compare/v0.4.3...v0.4.4)
+
+#### Fixes
+
+* Allow >1 parameter in string step definitions (Craig Morris)
+* Don't skip scenario outlines (close #245) (Julien Biezemans)
+
+#### Documentation, internals and tests
+
+* Bump nopt (Julien Biezemans)
+* Bump coffee-script (Julien Biezemans)
+* Bump pogo (Julien Biezemans)
+* Bump underscore (Julien Biezemans)
+* Bump rimraf (Julien Biezemans)
+* Bump jasmine-node (Julien Biezemans)
+* Bump connect (Julien Biezemans)
+* Rewrite bundling system (close #186) (Julien Biezemans)
+* Rename release script (Julien Biezemans)
+* Upgrade NPM on Travis (Julien Biezemans)
+* Drop Node 0.6 support (Julien Biezemans)
+* Drop Node 0.6 support (manifest) (Julien Biezemans)
+
+### [v0.4.3](https://github.com/cucumber/cucumber-js/compare/v0.4.2...v0.4.3)
+
+#### Fixes
+
+* Scenario outline fixes (Simon Dean)
+* Correct the embeddings JSON to match other ports of Cucumber (Simon Dean)
+
+### [v0.4.2](https://github.com/cucumber/cucumber-js/compare/v0.4.1...v0.4.2)
+
+#### New features
+
+* Support attachments (close #189) (Julien Biezemans)
+
+#### Documentation, internals and tests
+
+* Fix world example in main readme (Sam Saccone)
+* Update instructings for running tests (Sam Saccone)
+
+### [v0.4.1](https://github.com/cucumber/cucumber-js/compare/v0.4.0...v0.4.1)
+
+#### New features
+
+* Target scenario by line number on CLI (close #168) (Simon Lampen)
+
+#### Fixes
+
+* Ensure no stdout output is lost (Simon Dean)
+* Properly tag scenario outlines (close #195 #197) (Artur Kania)
+
+#### Documentation, internals and tests
+
+* Align snippet comment with Cucumber-Ruby/JVM (close #150) (Julien Biezemans)
+* Update build badge URL on README (Julien Biezemans)
+* Add line number pattern to --help on CLI (Julien Biezemans)
+* Document AfterFeatures event (close #171) (Eddie Loeffen)
+* Include 'features' in *Features events payload (Stanley Shyiko)
+* Try to fix build on Travis (Julien Biezemans)
+* Remove bower as a dev dependency (close #191) (Simon Dean)
+* Remove obsolete Travis trick for Node 0.8 (Julien Biezemans)
+* Remove development status table from README (Julien Biezemans)
+* Help the guy produce changelogs (Julien Biezemans)
 
 ### [v0.4.0](https://github.com/cucumber/cucumber-js/compare/v0.3.3...v0.4.0)
 
